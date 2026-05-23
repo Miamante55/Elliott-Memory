@@ -11,6 +11,7 @@
 - 生产部署建议使用源码构建，并同时运行 `ombre-brain` 和 `ombre-gateway` 两个服务。
 - bucket 数据和运行状态必须放在持久化目录里；`state` 不建议放进任何双向同步目录。
 - `X-Ombre-Session-Id` 是本 fork 的 Gateway 会话头，不是 OpenAI 标准字段。它像 Persona 的“房间号”：同一个值会共用同一份 persona_state 和召回冷却记录。可以自己起，比如 `my-main`、`chat-main`，不要照抄旧文档里的 `xiaoyu-main`。
+- 给 Operit 或其它聊天平台写工具使用清单时，先区分 MCP 工具模式和 Gateway 自动注入模式，参考 [`docs/Tool Guide.md`](<docs/Tool Guide.md>)。
 
 ## 二次开发能力
 
@@ -358,6 +359,8 @@ rm /srv/ombre-brain/state/.dashboard_auth.json
 
 ## MCP 工具口径
 
+给 Operit 或其它平台配置指令时，不要把 MCP 工具模式和 Gateway 自动注入模式混在一起。可直接复制的工具清单见 [`docs/Tool Guide.md`](<docs/Tool Guide.md>)。
+
 | 工具 | 口径 |
 | --- | --- |
 | `breath` | 只读浮现或检索记忆；默认不读 feel，可用 `domain="feel"` |
@@ -682,10 +685,9 @@ C:\Python313\python.exe -m pytest tests\test_gateway.py tests\test_memory_api.py
 ## 还没完成的方向
 
 - 完整 entity / 知识图谱。
-- Memory Edge 同步到 Supabase。
-- 真正写入 calendar / todo app 的承诺系统。
+- Memory Edge 同步到 Supabase：暂时不做；Supabase 目前只作为备用同步层。
 - `affect_anchor` 独立解析、筛选、可视化和检索。
-- 通用化部署时补一条迁移脚本，用于批量替换旧 prompt 示例或测试 fixture 里的默认名字；运行时 prompt 已优先读 `identity`。
+- 通用化部署文案继续减少个性化示例；运行时 prompt 已优先读 `identity`。
 
 ## License
 
