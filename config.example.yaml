@@ -46,6 +46,13 @@ identity:
 # 存新记忆时，如果与已有桶的相似度超过此值（0-100），则合并而非新建
 merge_threshold: 75
 
+# --- Write path / 写入路径 ---
+# Semantic related-memory lookup is useful, but should not hold MCP responses
+# forever when the embedding provider is slow.
+# 语义查旧记忆很有用，但 embedding 服务慢时不能一直卡住 MCP 响应。
+write_path:
+  semantic_search_timeout_seconds: 3  # Timeout for write-time semantic lookup / 写入时语义查找超时秒数
+
 # --- Dehydration API / 脱水压缩 API 配置 ---
 # Uses a cheap LLM for intelligent compression; auto-degrades to local
 # keyword extraction if API is unavailable
@@ -258,6 +265,8 @@ reflection:
   enabled: true
   auto_enabled: true
   enrich_on_write: true
+  enrich_backfill_enabled: true      # hourly scheduler backfills missing tags/confidence/edges
+  enrich_backfill_limit: 5           # max buckets to backfill per scheduler tick
   base_url: ""                    # empty = persona.base_url
   model: ""                       # empty = persona.model
   thinking_mode: ""               # empty = persona.thinking_mode
