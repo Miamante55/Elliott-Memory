@@ -15,6 +15,20 @@ from memory_relevance import (
 
 
 CONTEXT_ONLY_SECTIONS = frozenset({"affect_anchor", "favorite_reason", "comment"})
+CONTEXT_ONLY_SECTION_ALIASES = {
+    "affect_anchor": "affect_anchor",
+    "affect anchor": "affect_anchor",
+    "favorite_reason": "favorite_reason",
+    "favorite reason": "favorite_reason",
+    "comment": "comment",
+    "year_ring": "comment",
+    "year ring": "comment",
+    "喜欢它的原因": "favorite_reason",
+    "喜欢的原因": "favorite_reason",
+    "年轮": "comment",
+    "评论": "comment",
+}
+MARKDOWN_HEADING_RE = re.compile(r"^(#{2,6})\s+(.+?)\s*$")
 WEAK_RECALL_TOPIC_TERMS = frozenset(
     {
         "进度",
@@ -295,7 +309,7 @@ class RecallPolicy:
         meta = bucket.get("metadata", {}) if isinstance(bucket.get("metadata"), dict) else {}
         fields = " ".join(
             [
-                str(bucket.get("content") or ""),
+                _content_without_context_only_sections(str(bucket.get("content") or "")),
                 str(meta.get("name") or ""),
                 str(meta.get("annotation_summary") or ""),
                 _evidence_spans_text(meta.get("evidence_spans")),
@@ -456,6 +470,35 @@ def _evidence_spans_text(value: Any) -> str:
         elif isinstance(item, str) and item.strip():
             parts.append(item.strip())
     return " ".join(parts)
+
+
+def _content_without_context_only_sections(content: str) -> str:
+    lines = str(content or "").splitlines()
+    kept: list[str] = []
+    skip_until_level = 0
+    for line in lines:
+        match = MARKDOWN_HEADING_RE.match(line)
+        if match:
+            level = len(match.group(1))
+            raw_heading = match.group(2).strip()
+            if skip_until_level and level > skip_until_level:
+                continue
+            skip_until_level = 0
+            if _context_only_heading(raw_heading):
+                skip_until_level = level
+                continue
+        if skip_until_level:
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def _context_only_heading(heading: str) -> bool:
+    normalized = re.sub(r"\s+", " ", str(heading or "").strip().lower())
+    normalized = normalized.strip("：: -_")
+    normalized = re.sub(r"^\d+[.、]\s*", "", normalized)
+    normalized = normalized.replace("-", "_")
+    return CONTEXT_ONLY_SECTION_ALIASES.get(normalized, normalized) in CONTEXT_ONLY_SECTIONS
 
 
 def _term_subsumes(container: str, contained: str) -> bool:

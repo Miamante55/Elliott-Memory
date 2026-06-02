@@ -106,6 +106,26 @@ def test_bucket_topic_evidence_uses_content_title_tags_domain_but_not_comments()
     assert not policy.bucket_has_topic_evidence("handoff bridge 注入 原文", comment_only_bucket)
 
 
+def test_bucket_topic_evidence_ignores_markdown_temperature_sections():
+    policy = RecallPolicy()
+    bucket = {
+        "content": (
+            "正文是情书。\n\n"
+            "### affect_anchor\n"
+            "handoff bridge 注入 原文\n\n"
+            "### 喜欢它的原因\n"
+            "FF14 蓝色\n\n"
+            "### fact\n"
+            "小雨喜欢蓝色。"
+        ),
+        "metadata": {"name": "情书", "tags": ["恋爱"], "domain": ["恋爱"]},
+    }
+
+    assert not policy.bucket_has_topic_evidence("handoff bridge 注入 原文", bucket)
+    assert policy.bucket_has_topic_evidence("蓝色", bucket)
+    assert not policy.bucket_has_topic_evidence("FF14", bucket)
+
+
 def test_moment_topic_evidence_uses_text_and_bucket_metadata():
     policy = RecallPolicy()
     moment = {

@@ -123,6 +123,61 @@ def test_chain_walk_prefers_closer_hit_when_relation_quality_matches():
     assert [hit.bucket_id for hit in hits] == ["B", "C"]
 
 
+def test_chain_walk_does_not_continue_backwards_through_directional_edges():
+    bucket_map = {
+        bucket_id: _bucket(bucket_id)
+        for bucket_id in ["incident", "reflection", "followup"]
+    }
+    edges = [
+        {"source": "incident", "target": "reflection", "relation_type": "reflects_on", "confidence": 0.95},
+        {"source": "incident", "target": "followup", "relation_type": "updates", "confidence": 0.95},
+    ]
+
+    hits = diffuse_memory(
+        {"reflection": 1.0},
+        edges,
+        bucket_map,
+        options=DiffusionOptions(
+            max_hops=1,
+            top_k=10,
+            min_activation=0.0,
+            chain_walk_enabled=True,
+            chain_max_hops=4,
+        ),
+    )
+
+    assert [hit.bucket_id for hit in hits] == ["incident"]
+    assert hits[0].best_path.steps[0].direction == "incoming"
+
+
+def test_chain_walk_can_continue_backwards_through_same_event_edges():
+    bucket_map = {
+        bucket_id: _bucket(bucket_id)
+        for bucket_id in ["later", "same-event", "followup"]
+    }
+    edges = [
+        {"source": "same-event", "target": "later", "relation_type": "same_event", "confidence": 0.95},
+        {"source": "same-event", "target": "followup", "relation_type": "updates", "confidence": 0.95},
+    ]
+
+    hits = diffuse_memory(
+        {"later": 1.0},
+        edges,
+        bucket_map,
+        options=DiffusionOptions(
+            max_hops=1,
+            top_k=10,
+            min_activation=0.0,
+            chain_walk_enabled=True,
+            chain_max_hops=4,
+        ),
+    )
+
+    assert [hit.bucket_id for hit in hits] == ["same-event", "followup"]
+    assert hits[0].best_path.steps[0].direction == "incoming"
+    assert hits[1].best_path.steps[-1].direction == "outgoing"
+
+
 def test_diffusion_config_parses_chain_walk_options():
     options = diffusion_options_from_config(
         {

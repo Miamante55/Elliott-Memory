@@ -2299,6 +2299,53 @@ def test_gateway_diffused_memory_renders_temperature_context(
     assert "年轮：扩散目标后来被重新确认" in injected
 
 
+def test_gateway_bucket_edge_bridge_uses_direct_target_representative(
+    monkeypatch,
+    test_config,
+    bucket_mgr,
+):
+    _, service, _, _ = _build_service(monkeypatch, _gateway_config(test_config), bucket_mgr)
+    source = {
+        "moment_id": "source-fact",
+        "bucket_id": "source-bucket",
+        "section": "fact",
+        "text": "source fact",
+        "ordinal": 1,
+        "metadata": {},
+    }
+    target_comment = {
+        "moment_id": "target-comment",
+        "bucket_id": "target-bucket",
+        "section": "comment",
+        "text": "comment should stay temperature context",
+        "ordinal": 1,
+        "metadata": {},
+    }
+
+    edges = service._bucket_edges_as_moment_edges(
+        [{"source": "source-bucket", "target": "target-bucket", "relation_type": "supports", "confidence": 1.0}],
+        {"source-bucket": [source], "target-bucket": [target_comment]},
+    )
+
+    assert edges == []
+
+    target_fact = {
+        **target_comment,
+        "moment_id": "target-fact",
+        "section": "fact",
+        "text": "target fact",
+        "ordinal": 2,
+    }
+    edges = service._bucket_edges_as_moment_edges(
+        [{"source": "source-bucket", "target": "target-bucket", "relation_type": "supports", "confidence": 1.0}],
+        {"source-bucket": [source], "target-bucket": [target_comment, target_fact]},
+    )
+
+    assert len(edges) == 1
+    assert edges[0]["source"] == "source-fact"
+    assert edges[0]["target"] == "target-fact"
+
+
 def test_gateway_explicit_topic_diffusion_stays_on_topic(
     monkeypatch,
     test_config,

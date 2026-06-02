@@ -2271,11 +2271,19 @@ class GatewayService:
                     return moment
         return moments[0] if moments else None
 
+    def _direct_representative_moment(self, moments: list[dict]) -> dict | None:
+        return self._representative_moment(
+            [
+                moment for moment in self._recallable_moments(moments)
+                if moment.get("section") not in MOMENT_TEMPERATURE_SECTIONS
+            ]
+        )
+
     def _representative_moments_by_bucket(self, moments: list[dict]) -> dict[str, dict]:
         grouped = self._moments_by_bucket(moments)
         representatives = {}
         for bucket_id, bucket_moments in grouped.items():
-            representative = self._representative_moment(bucket_moments)
+            representative = self._direct_representative_moment(bucket_moments)
             if representative:
                 representatives[bucket_id] = representative
         return representatives
@@ -2291,7 +2299,7 @@ class GatewayService:
             target_bucket = str(edge.get("target") or edge.get("target_memory_id") or "").strip()
             if not source_bucket or not target_bucket:
                 continue
-            target = self._representative_moment(grouped.get(target_bucket, []))
+            target = self._direct_representative_moment(grouped.get(target_bucket, []))
             if not target:
                 continue
             relation_type = str(edge.get("relation_type") or edge.get("type") or "relates_to")
@@ -2685,6 +2693,7 @@ class GatewayService:
                 note=note,
                 path=path,
                 moment_map=moment_map,
+                chain_bundle=self.diffusion_options.chain_walk_enabled,
             )
             tokens = count_tokens_approx(block)
             if tokens > remaining and parts:
@@ -2827,7 +2836,16 @@ class GatewayService:
         note: str,
         path: Any | None = None,
         moment_map: dict[str, dict] | None = None,
+        chain_bundle: bool = False,
     ) -> str:
+        if chain_bundle and path is not None and len(getattr(path, "steps", ()) or ()) >= 2:
+            return self._format_diffused_chain_bundle(
+                moment,
+                max_chars=max_chars,
+                note=note,
+                path=path,
+                moment_map=moment_map or {},
+            )
         summary = self._diffused_moment_summary(
             moment,
             max_chars=max_chars,
@@ -2844,6 +2862,37 @@ class GatewayService:
         return (
             f"- [bucket_id:{moment.get('bucket_id') or ''}] [moment_id:{moment.get('moment_id') or ''}] "
             f"{summary}{context_part}{suffix}"
+        )
+
+    def _format_diffused_chain_bundle(
+        self,
+        moment: dict,
+        *,
+        max_chars: int,
+        note: str,
+        path: Any,
+        moment_map: dict[str, dict],
+    ) -> str:
+        nodes = tuple(str(node_id) for node_id in (getattr(path, "nodes", ()) or ()))
+        seed_id = nodes[0] if nodes else ""
+        seed_label = self._moment_node_label(moment_map.get(seed_id), seed_id)
+        chain = self._moment_path_summary(path, moment_map)
+        target = self._diffused_moment_summary(
+            moment,
+            max_chars=max_chars,
+            path=None,
+            moment_map=moment_map,
+        )
+        temperature = self._diffused_temperature_context(
+            moment,
+            path=path,
+            moment_map=moment_map,
+        )
+        temperature_part = f"; temperature: {temperature}" if temperature else ""
+        suffix = f" ({note})" if note else ""
+        return (
+            f"- Chain Bundle: seed {seed_label}; chain: {chain}; "
+            f"target: {target}{temperature_part}{suffix}"
         )
 
     def _diffused_temperature_context(

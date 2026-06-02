@@ -22,6 +22,7 @@ DEFAULT_CHAIN_CONTINUE_RELATIONS = (
     "evidenced_by",
     "reflects_on",
 )
+SAFE_INCOMING_CHAIN_RELATIONS = frozenset({"same_event"})
 DEFAULT_RELATION_TYPE_WEIGHTS = {
     "same_event": 1.15,
     "context_of": 1.1,
@@ -141,7 +142,7 @@ def _path_rank_key(path: "DiffusionPath") -> tuple[int, float, int]:
 
 def _hit_rank_key(hit: "DiffusionHit", options: DiffusionOptions) -> tuple[int, float | int, float]:
     if options.chain_walk_enabled:
-        return (_path_display_priority(hit.best_path), -len(hit.best_path.steps), hit.activation)
+        return (_path_display_priority(hit.best_path), hit.activation, -len(hit.best_path.steps))
     return (
         _path_display_priority(hit.best_path),
         hit.activation,
@@ -354,6 +355,8 @@ def _should_continue_path(
     if step.confidence < options.chain_min_confidence:
         return False
     relation_type = str(step.relation_type or "relates_to")
+    if step.direction == "incoming" and relation_type not in SAFE_INCOMING_CHAIN_RELATIONS:
+        return False
     if relation_type in {"contradicts", "blocks"}:
         return False
     if relation_type in set(options.chain_continue_relation_types):
