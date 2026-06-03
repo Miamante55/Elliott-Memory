@@ -84,7 +84,6 @@ from memory_relevance import (
     active_facets,
     facets_for_text,
     memory_relevance_options_from_config,
-    query_has_facet,
     query_has_explicit_entity_marker,
     recall_search_query,
     recall_rank,
@@ -1656,7 +1655,8 @@ async def _build_mcp_diffused_memory_block(
     parts = []
     seen_targets = set()
     remaining = token_budget
-    allow_archive_targets = _query_explicitly_requests_archive_memory(query_text)
+    query_plan = _recall_query_plan(query_text)
+    allow_archive_targets = query_plan.allow_archive_targets
     for hit in hits:
         target_id = hit.bucket_id
         if not target_id or target_id in seen_targets:
@@ -1669,9 +1669,7 @@ async def _build_mcp_diffused_memory_block(
         if not can_bucket_be_related_target(target, explicit_lookup=allow_archive_targets):
             continue
         if (
-            query_text
-            and _query_requires_direct_topic_evidence(query_text)
-            and not _query_wants_body_chain(query_text)
+            query_plan.enforce_topic_evidence
             and not _bucket_has_query_topic_evidence(query_text, target)
         ):
             continue
@@ -2276,6 +2274,10 @@ def _recall_policy() -> RecallPolicy:
     )
 
 
+def _recall_query_plan(query: str, *, context_mode: str = ""):
+    return _recall_policy().plan_query(query, context_mode=context_mode)
+
+
 def _breath_moment_admission_decision(
     query: str,
     moment: dict,
@@ -2645,11 +2647,11 @@ def _query_is_vague_recall(query: str) -> bool:
 
 
 def _query_wants_body_chain(query: str) -> bool:
-    return query_has_facet(query, "embodiment", _recall_relevance_options())
+    return _recall_query_plan(query).wants_body_chain
 
 
 def _query_requires_direct_topic_evidence(query: str) -> bool:
-    return _recall_policy().requires_topic_evidence(query)
+    return _recall_query_plan(query).requires_topic_evidence
 
 
 def _recall_rank(query: str, moment: dict) -> tuple[int, float]:
@@ -2657,9 +2659,7 @@ def _recall_rank(query: str, moment: dict) -> tuple[int, float]:
 
 
 def _secondary_direct_limit(query: str, related_per_memory: int) -> int:
-    if _query_wants_body_chain(query):
-        return 5
-    return max(0, min(2, int(related_per_memory or 0)))
+    return _recall_query_plan(query).secondary_direct_limit(related_per_memory)
 
 
 def _secondary_direct_moments(
@@ -2667,9 +2667,12 @@ def _secondary_direct_moments(
     candidates: list[dict],
     displayed_bucket_ids: set[str],
     limit: int,
+    *,
+    query_plan=None,
 ) -> list[dict]:
     if limit <= 0:
         return []
+    query_plan = query_plan or _recall_query_plan(query)
     hidden = []
     seen_buckets = set(displayed_bucket_ids)
     for moment in candidates:
@@ -2680,11 +2683,14 @@ def _secondary_direct_moments(
             continue
         if should_suppress_context_candidate(query, moment, _recall_relevance_options()):
             continue
-        if not _query_wants_body_chain(query) and not _moment_has_query_topic_evidence(query, moment):
+        if (
+            query_plan.secondary_direct_requires_topic_evidence
+            and not _moment_has_query_topic_evidence(query, moment)
+        ):
             continue
         hidden.append(moment)
         seen_buckets.add(bucket_id)
-    if _query_wants_body_chain(query):
+    if query_plan.wants_body_chain:
         hidden.sort(key=lambda moment: _recall_rank(query, moment))
     return hidden[:limit]
 
@@ -2702,21 +2708,7 @@ def _specific_query_terms(query: str) -> list[str]:
 
 
 def _query_explicitly_requests_archive_memory(query: str) -> bool:
-    if not str(query or "").strip():
-        return False
-    options = _recall_relevance_options()
-    if query_has_facet(query, "old_or_resolved", options):
-        return True
-    text = " ".join(str(query or "").lower().split())
-    return any(
-        marker in text
-        for marker in (
-            "冲突", "吵架", "争吵", "矛盾", "误会", "旧版本", "旧版", "旧链",
-            "旧窗口", "已解决", "过期", "归档", "conflict", "fight",
-            "argument", "old version", "old path", "old chain", "resolved",
-            "archived", "deprecated", "obsolete",
-        )
-    )
+    return _recall_query_plan(query).explicit_old_memory
 
 
 def _representative_moments_by_bucket(
@@ -2764,7 +2756,7 @@ async def _build_mcp_moment_diffused_memory_block(
         edge for edge in edges
         if float(edge.get("confidence", 0.0)) >= min_confidence
     ]
-    allow_archive_targets = _query_explicitly_requests_archive_memory(query_text)
+    allow_archive_targets = _recall_query_plan(query_text).allow_archive_targets
     moment_map = _moment_diffusion_map(moments)
     representatives = _representative_moments_by_bucket(
         moments,
@@ -2878,11 +2870,8 @@ def _inspect_bucket_runtime_gate_payload(
     query: str = "",
 ) -> dict:
     gate = bucket_runtime_gate_debug(bucket, explicit_lookup=explicit_lookup)
-    topic_required = bool(
-        query
-        and _query_requires_direct_topic_evidence(query)
-        and not _query_wants_body_chain(query)
-    )
+    query_plan = _recall_query_plan(query)
+    topic_required = bool(query_plan.enforce_topic_evidence)
     has_topic_evidence = (
         _bucket_has_query_topic_evidence(query, bucket)
         if topic_required and isinstance(bucket, dict)
@@ -3589,6 +3578,7 @@ async def breath(
     secondary_moment_ids: list[str] = []
     related_source_bucket_ids: list[str] = []
     if include_related and returned_moments:
+        query_plan = _recall_query_plan(query)
         related_header = "=== 联想浮现 ===\n"
         related_budget = max_tokens - token_used - count_tokens_approx(related_header)
         related_parts = []
@@ -3596,7 +3586,8 @@ async def breath(
             query,
             returned_moments,
             displayed_bucket_ids,
-            _secondary_direct_limit(query, related_per_memory),
+            query_plan.secondary_direct_limit(related_per_memory),
+            query_plan=query_plan,
         )
         for moment in secondary_moments:
             if related_budget <= 0:

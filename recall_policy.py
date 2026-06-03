@@ -8,6 +8,7 @@ from memory_relevance import (
     MemoryRelevanceOptions,
     content_terms_for_query,
     memory_relevance_options_from_config,
+    query_has_facet,
     query_has_explicit_entity_marker,
     query_has_technical_recall_marker,
     recall_admission_decision,
@@ -69,6 +70,33 @@ WEAK_RECALL_TOPIC_TERMS = frozenset(
         "topic",
     }
 )
+OLD_OR_RESOLVED_QUERY_MARKERS = frozenset(
+    {
+        "冲突",
+        "吵架",
+        "争吵",
+        "矛盾",
+        "误会",
+        "旧版本",
+        "旧版",
+        "旧链",
+        "旧窗口",
+        "已解决",
+        "过期",
+        "归档",
+        "conflict",
+        "fight",
+        "argument",
+        "old version",
+        "old path",
+        "old chain",
+        "resolved",
+        "archived",
+        "deprecated",
+        "obsolete",
+    }
+)
+CAUTION_CONTEXT_MODES = frozenset({"reflective_repair", "conflict_repair"})
 AUTO_VAGUE_RECALL_MARKERS = frozenset(
     {
         "上下文",
@@ -176,6 +204,35 @@ class RecallPolicyDecision:
         return self.admit_direct
 
 
+@dataclass(frozen=True)
+class RecallQueryPlan:
+    query: str
+    wants_body_chain: bool
+    requires_topic_evidence: bool
+    enforce_topic_evidence: bool
+    recent_context_requires_topic_evidence: bool
+    explicit_old_memory: bool
+    allow_caution_diffusion: bool
+    specific_terms: tuple[str, ...]
+
+    @property
+    def allow_archive_targets(self) -> bool:
+        return self.allow_caution_diffusion
+
+    @property
+    def related_max_chars(self) -> int:
+        return 90 if self.wants_body_chain else 180
+
+    def secondary_direct_limit(self, related_per_memory: int) -> int:
+        if self.wants_body_chain:
+            return 5
+        return max(0, min(2, int(related_per_memory or 0)))
+
+    @property
+    def secondary_direct_requires_topic_evidence(self) -> bool:
+        return not self.wants_body_chain
+
+
 class RecallPolicy:
     def __init__(
         self,
@@ -193,6 +250,33 @@ class RecallPolicy:
 
     def should_enforce_topic_evidence(self, query: str, *, allow_body_chain: bool = False) -> bool:
         return self.requires_topic_evidence(query) and not allow_body_chain
+
+    def plan_query(self, query: str, *, context_mode: str = "") -> RecallQueryPlan:
+        text = str(query or "").strip()
+        wants_body_chain = query_has_facet(text, "embodiment", self.options)
+        explicit_old_memory = self._query_explicitly_requests_old_memory(text)
+        allow_caution_diffusion = explicit_old_memory or str(context_mode or "").strip() in CAUTION_CONTEXT_MODES
+        return RecallQueryPlan(
+            query=text,
+            wants_body_chain=wants_body_chain,
+            requires_topic_evidence=self.requires_topic_evidence(text),
+            enforce_topic_evidence=self.should_enforce_topic_evidence(
+                text,
+                allow_body_chain=wants_body_chain,
+            ),
+            recent_context_requires_topic_evidence=self.is_auto_concrete_topic_query(text),
+            explicit_old_memory=explicit_old_memory,
+            allow_caution_diffusion=allow_caution_diffusion,
+            specific_terms=tuple(self.specific_query_terms(text)),
+        )
+
+    def _query_explicitly_requests_old_memory(self, query: str) -> bool:
+        if not str(query or "").strip():
+            return False
+        if query_has_facet(query, "old_or_resolved", self.options):
+            return True
+        text = " ".join(str(query or "").lower().split())
+        return any(marker in text for marker in OLD_OR_RESOLVED_QUERY_MARKERS)
 
     def is_auto_query_too_vague(self, query: str) -> bool:
         text = str(query or "").strip()

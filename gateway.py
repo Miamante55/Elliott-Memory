@@ -2971,18 +2971,24 @@ class GatewayService:
         if self.related_memory_budget <= 0 or not seed_moments:
             return ""
 
+        query_plan = self._recall_query_plan(query_text, context_mode=context_mode)
         remaining = self.related_memory_budget
         parts = []
-        related_max_chars = 90 if self._query_wants_body_chain(query_text) else 180
-        allow_caution_paths = self._allows_caution_diffusion(query_text, context_mode)
-        allow_archive_targets = allow_caution_paths or self._query_explicitly_requests_caution_memory(query_text)
+        related_max_chars = query_plan.related_max_chars
+        allow_caution_paths = query_plan.allow_caution_diffusion
+        allow_archive_targets = query_plan.allow_archive_targets
         used_bucket_ids = {
             str(moment.get("bucket_id") or "")
             for moment in seed_moments
             if moment.get("bucket_id")
         }
 
-        for moment in self._secondary_direct_moments(query_text, moment_candidates, used_bucket_ids):
+        for moment in self._secondary_direct_moments(
+            query_text,
+            moment_candidates,
+            used_bucket_ids,
+            query_plan=query_plan,
+        ):
             if self._moment_is_caution_or_old(moment) and not allow_caution_paths:
                 continue
             block = self._format_diffused_moment_line(
@@ -3042,8 +3048,7 @@ class GatewayService:
                 if not can_moment_be_related_target(moment, explicit_lookup=allow_archive_targets):
                     continue
             if (
-                self._query_requires_topic_evidence(query_text)
-                and not self._query_wants_body_chain(query_text)
+                query_plan.enforce_topic_evidence
                 and not self._moment_has_query_topic_evidence(query_text, moment)
             ):
                 continue
@@ -3080,7 +3085,10 @@ class GatewayService:
         query: str,
         candidates: list[dict],
         used_bucket_ids: set[str],
+        *,
+        query_plan=None,
     ) -> list[dict]:
+        query_plan = query_plan or self._recall_query_plan(query)
         hidden = []
         seen = set(used_bucket_ids)
         for moment in candidates:
@@ -3092,26 +3100,25 @@ class GatewayService:
             if should_suppress_context_candidate(query, moment, self.relevance_options):
                 continue
             if (
-                self._query_requires_topic_evidence(query)
-                and not self._query_wants_body_chain(query)
+                query_plan.enforce_topic_evidence
                 and not self._moment_has_query_topic_evidence(query, moment)
             ):
                 continue
             hidden.append(moment)
             seen.add(bucket_id)
-        if self._query_wants_body_chain(query):
+        if query_plan.wants_body_chain:
             hidden.sort(key=lambda moment: self._recall_rank(query, moment))
             return hidden[:5]
         return hidden[: max(0, min(2, self.inject_max_cards))]
 
     def _query_requires_topic_evidence(self, query: str) -> bool:
-        return self.recall_policy.requires_topic_evidence(query)
+        return self._recall_query_plan(query).requires_topic_evidence
 
     def _auto_query_too_vague(self, query: str) -> bool:
         return self.recall_policy.is_auto_query_too_vague(query)
 
     def _recent_context_requires_topic_evidence(self, query: str) -> bool:
-        return self.recall_policy.is_auto_concrete_topic_query(query)
+        return self._recall_query_plan(query).recent_context_requires_topic_evidence
 
     def _moment_has_query_topic_evidence(self, query: str, moment: dict) -> bool:
         return self.recall_policy.moment_has_topic_evidence(query, moment)
@@ -3122,22 +3129,14 @@ class GatewayService:
     def _specific_query_terms(self, query: str) -> list[str]:
         return self.recall_policy.specific_query_terms(query)
 
+    def _recall_query_plan(self, query: str, *, context_mode: str = ""):
+        return self.recall_policy.plan_query(query, context_mode=context_mode)
+
     def _allows_caution_diffusion(self, query: str, context_mode: str) -> bool:
-        if str(context_mode or "").strip() in {"reflective_repair", "conflict_repair"}:
-            return True
-        return self._query_explicitly_requests_caution_memory(query)
+        return self._recall_query_plan(query, context_mode=context_mode).allow_caution_diffusion
 
     def _query_explicitly_requests_caution_memory(self, query: str) -> bool:
-        text = " ".join(str(query or "").lower().split())
-        return self._text_has_any(
-            text,
-            (
-                "冲突", "吵架", "争吵", "矛盾", "误会", "旧版本", "旧版", "旧链",
-                "旧窗口", "已解决", "过期", "归档", "conflict", "fight",
-                "argument", "old version", "old path", "old chain", "resolved",
-                "archived", "deprecated", "obsolete",
-            ),
-        )
+        return self._recall_query_plan(query).explicit_old_memory
 
     def _select_diffusion_path_for_context(
         self,
@@ -3418,7 +3417,7 @@ class GatewayService:
         ).lower()
 
     def _query_wants_body_chain(self, query: str) -> bool:
-        return query_has_facet(query, "embodiment", self.relevance_options)
+        return self._recall_query_plan(query).wants_body_chain
 
     def _query_has_relevance_facet(self, query: str) -> bool:
         return bool(active_facets(facets_for_text(query, self.relevance_options)))
@@ -3492,9 +3491,10 @@ class GatewayService:
         )
         if not hits:
             return ""
+        query_plan = self._recall_query_plan(query_text)
         remaining = self.related_memory_budget
         parts = []
-        allow_archive_targets = self._query_explicitly_requests_caution_memory(query_text)
+        allow_archive_targets = query_plan.allow_archive_targets
         for hit in hits:
             target_id = hit.bucket_id
             target = bucket_map.get(target_id)
@@ -3503,8 +3503,7 @@ class GatewayService:
             if not can_bucket_be_related_target(target, explicit_lookup=allow_archive_targets):
                 continue
             if (
-                self._query_requires_topic_evidence(query_text)
-                and not self._query_wants_body_chain(query_text)
+                query_plan.enforce_topic_evidence
                 and not self._bucket_has_query_topic_evidence(query_text, target)
             ):
                 continue
@@ -4010,11 +4009,8 @@ class GatewayService:
         query: str = "",
     ) -> dict[str, Any]:
         gate = bucket_runtime_gate_debug(bucket, explicit_lookup=explicit_lookup)
-        topic_required = bool(
-            query
-            and self._query_requires_topic_evidence(query)
-            and not self._query_wants_body_chain(query)
-        )
+        query_plan = self._recall_query_plan(query)
+        topic_required = bool(query_plan.enforce_topic_evidence)
         has_topic_evidence = (
             self._bucket_has_query_topic_evidence(query, bucket)
             if topic_required and isinstance(bucket, dict)
@@ -4044,11 +4040,8 @@ class GatewayService:
         query: str = "",
     ) -> dict[str, Any]:
         gate = moment_runtime_gate_debug(moment, explicit_lookup=explicit_lookup)
-        topic_required = bool(
-            query
-            and self._query_requires_topic_evidence(query)
-            and not self._query_wants_body_chain(query)
-        )
+        query_plan = self._recall_query_plan(query)
+        topic_required = bool(query_plan.enforce_topic_evidence)
         has_topic_evidence = (
             self._moment_has_query_topic_evidence(query, moment)
             if topic_required and isinstance(moment, dict)

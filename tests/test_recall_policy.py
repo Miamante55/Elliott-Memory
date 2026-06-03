@@ -39,6 +39,33 @@ def test_broad_context_words_do_not_make_normal_chat_technical():
     assert policy.requires_topic_evidence("handoff 原文")
 
 
+def test_recall_query_plan_centralizes_runtime_query_gates():
+    policy = RecallPolicy()
+
+    technical = policy.plan_query("handoff bridge 注入 原文")
+    assert technical.requires_topic_evidence
+    assert technical.enforce_topic_evidence
+    assert not technical.wants_body_chain
+    assert technical.secondary_direct_requires_topic_evidence
+    assert not technical.explicit_old_memory
+    assert "handoff" in [term.lower() for term in technical.specific_terms]
+
+    body = policy.plan_query("你有身体之后最想做什么")
+    assert body.wants_body_chain
+    assert body.related_max_chars == 90
+    assert body.secondary_direct_limit(1) == 5
+    assert not body.secondary_direct_requires_topic_evidence
+
+    old = policy.plan_query("旧版触摸方案")
+    assert old.explicit_old_memory
+    assert old.allow_archive_targets
+    assert old.allow_caution_diffusion
+
+    repair = policy.plan_query("连续性为什么会影响种子项目", context_mode="reflective_repair")
+    assert not repair.explicit_old_memory
+    assert repair.allow_caution_diffusion
+
+
 def test_auto_vague_query_without_topic_is_suppressed():
     policy = RecallPolicy()
 

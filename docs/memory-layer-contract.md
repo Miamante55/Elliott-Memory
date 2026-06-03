@@ -112,6 +112,8 @@ The runtime answers "which layer is this?" with `memory_layers.py`, then applies
 - Related target gate: diffused memory must be summary-only and must pass the target layer policy. Archive/resolved/digested buckets stay hidden in normal related recall, but can return as old-memory summary when the query explicitly asks for old, archived, conflict, or resolved material.
 - Recent context gate: automatic `Recent Context` only uses dynamic memory. Writer-classified stable boundaries and relationship lessons do not appear just because they were written recently; they can still appear when directly recalled or when the user explicitly asks for recent memory.
 
+Query-level gates are planned once by `RecallPolicy.plan_query()`. The plan carries whether the query wants a body chain, whether topic evidence is enforced, whether old/archive material is explicitly requested, and whether cautious diffusion is allowed by repair context.
+
 This separation is important. A moment can be searchable context without being allowed to prove the current topic.
 
 Debug surfaces should expose the same runtime decision. `inspect_moments`, `inspect_diffusion`, `/api/breath-debug`, and Gateway injection debug include:
