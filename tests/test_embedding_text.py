@@ -57,6 +57,7 @@ def test_strip_affect_anchor_preserves_following_sections():
 def test_strip_temperature_meaning_lines_only_removes_standalone_lines():
     text = (
         "> 小雨把旧信放到桌上。\n"
+        "> Dbmaj9 -> Ab/C -> Bbm9 · 60bpm · mp\n"
         "含义：这只是模板解释。\n"
         "正文里的含义：应该保留。"
     )
@@ -64,6 +65,8 @@ def test_strip_temperature_meaning_lines_only_removes_standalone_lines():
     cleaned = strip_temperature_meaning_lines(text)
 
     assert "模板解释" not in cleaned
+    assert "Dbmaj9" not in cleaned
+    assert "60bpm" not in cleaned
     assert "> 小雨把旧信放到桌上。" in cleaned
     assert "正文里的含义：应该保留。" in cleaned
 

@@ -672,6 +672,7 @@ async def test_search_related_memory_renders_temperature_context(patch_breath):
                 "",
                 "### affect_anchor",
                 "> B related anchor should be visible as context.",
+                "> Dbmaj9 -> Ab/C -> Bbm9 · 60bpm · mp",
                 "含义：template meaning should be hidden.",
             ]
         ),
@@ -705,6 +706,8 @@ async def test_search_related_memory_renders_temperature_context(patch_breath):
     assert "[affect_anchor]" in related_block
     assert "[年轮]" in related_block
     assert "B related anchor should be visible" in related_block
+    assert "Dbmaj9" not in related_block
+    assert "60bpm" not in related_block
     assert "template meaning should be hidden" not in related_block
     assert "年轮：B related target was reaffirmed" in related_block
 
@@ -1467,7 +1470,8 @@ async def test_breath_chain_bundle_carries_temperature_context(
                     "### followup\n"
                     "蓝色后续：已写入 user.md，未来涉及颜色偏好时优先记得蓝色。\n\n"
                     "### affect_anchor\n"
-                    "蓝色偏好温度：这不是孤立颜色，是被记住的安全感。"
+                    "蓝色偏好温度：这不是孤立颜色，是被记住的安全感。\n"
+                    "> Dbmaj9 -> Ab/C -> Bbm9 · 60bpm · mp"
                 ),
                 name="蓝色后续写入",
                 score=1.0,
@@ -1505,6 +1509,8 @@ async def test_breath_chain_bundle_carries_temperature_context(
     assert "temperature:" in related_block
     assert "[affect_anchor]" in related_block
     assert "蓝色偏好温度" in related_block
+    assert "Dbmaj9" not in related_block
+    assert "60bpm" not in related_block
     assert "无关 favorite" not in related_block
     assert "favorite。" not in related_block
 

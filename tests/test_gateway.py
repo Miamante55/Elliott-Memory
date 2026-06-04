@@ -2467,6 +2467,7 @@ def test_gateway_diffused_memory_renders_temperature_context(
             "扩散目标正文。\n\n"
             "### affect_anchor\n\n"
             "> 扩散目标温度锚点应该作为辅助语境出现。\n"
+            "> Dbmaj9 -> Ab/C -> Bbm9 · 60bpm · mp\n"
             "含义：模板解释不应该进入输出。"
         ),
     )
@@ -2512,6 +2513,8 @@ def test_gateway_diffused_memory_renders_temperature_context(
     assert "[affect_anchor]" in injected
     assert "[year_ring]" in injected
     assert "扩散目标温度锚点应该作为辅助语境出现" in injected
+    assert "Dbmaj9" not in injected
+    assert "60bpm" not in injected
     assert "模板解释不应该进入输出" not in injected
     assert "年轮：扩散目标后来被重新确认" in injected
     assert debug_response.status_code == 200
@@ -2522,6 +2525,7 @@ def test_gateway_diffused_memory_renders_temperature_context(
     assert target_debug["runtime_gate"]["would_inject_related"] is True
     assert target_debug["temperature_context"][0]["section"] == "affect_anchor"
     assert "扩散目标温度锚点" in target_debug["temperature_context"][0]["text_preview"]
+    assert "Dbmaj9" not in target_debug["temperature_context"][0]["text_preview"]
 
 
 def test_gateway_injection_debug_exposes_diffused_chain_bundle(

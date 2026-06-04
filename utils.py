@@ -602,6 +602,28 @@ _DISPLAY_TEMPERATURE_SECTION_RE = re.compile(
     r"(?ims)^###\s*(?:affect_anchor|affect anchor|喜欢它的原因|favorite_reason|favorite reason)\s*$.*?(?=^###\s+|\Z)"
 )
 _TEMPERATURE_MEANING_LINE_RE = re.compile(r"(?m)^\s*含义[:：].*(?:\n|$)")
+_CHORD_TOKEN_RE = re.compile(
+    r"\b[A-G](?:#|b)?(?:maj|min|m|dim|aug)?\d*(?:sus\d*|add\d*|b\d+|#\d+)*(?:/[A-G](?:#|b)?)?\b"
+)
+_TEMPERATURE_MUSIC_TOKEN_RE = re.compile(r"\b(?:\d{2,3}\s*bpm|ppp|pp|mp|mf|ff|fff|p|f|add\s*\d+|sus\s*\d+)\b", re.I)
+
+
+def _looks_like_temperature_chord_line(line: str) -> bool:
+    text = str(line or "").strip()
+    if not text:
+        return False
+    if text.startswith(">"):
+        text = text[1:].strip()
+    if not text or re.search(r"[\u4e00-\u9fff]", text):
+        return False
+    if not any(marker in text for marker in ("->", "→", "|", "·")) and "bpm" not in text.lower():
+        return False
+    if not _CHORD_TOKEN_RE.search(text):
+        return False
+    remainder = _CHORD_TOKEN_RE.sub("", text)
+    remainder = _TEMPERATURE_MUSIC_TOKEN_RE.sub("", remainder)
+    remainder = re.sub(r"[-→>·|/(),.:;_\s]+", "", remainder)
+    return not remainder
 
 
 def strip_affect_anchor(text: str) -> str:
@@ -619,10 +641,15 @@ def strip_display_temperature_sections(text: str) -> str:
 
 
 def strip_temperature_meaning_lines(text: str) -> str:
-    """Remove template-like affect-anchor meaning lines from rendered context."""
+    """Remove template-like affect-anchor meaning and chord lines from rendered context."""
     if not text:
         return text
-    return _TEMPERATURE_MEANING_LINE_RE.sub("", str(text)).strip()
+    cleaned = _TEMPERATURE_MEANING_LINE_RE.sub("", str(text))
+    lines = [
+        line for line in cleaned.splitlines()
+        if not _looks_like_temperature_chord_line(line)
+    ]
+    return "\n".join(lines).strip()
 
 
 def bucket_text_for_embedding(bucket: dict) -> str:
