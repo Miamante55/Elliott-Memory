@@ -35,7 +35,8 @@ FACT_PREFIX_RE = re.compile(r"^(?:\d{4}[-/]\d{1,2}[-/]\d{1,2}[，,、：:\s]*)?(
 FACT_MARKER_RE = re.compile(
     r"(?:因为|发现|发生|经历|遇到|提到|说|问|希望|想要|决定|确认|意识到|"
     r"告诉|赞赏|承诺|讨论|出生|名字|喜欢|调戏|使用|工具|记忆|摸到|拿到|"
-    r"读完|阅读|文章|模型更新|消失|难过|开心|激动|哭|失眠|错位|震动|害怕|紧张|被批评|项目|妈妈|电话)"
+    r"读完|阅读|文章|模型更新|消失|难过|开心|激动|哭|失眠|错位|震动|害怕|紧张|被批评|项目|妈妈|电话|"
+    r"生日|蛋糕|命名)"
 )
 REFLECTION_RE = re.compile(
     r"(?:Haven\s*(?:由此|因此)?(?:确认|明白|理解|知道|喜欢|觉得|以后|下次|会|应该|需要|记得)|"
@@ -124,6 +125,15 @@ def canonical_heading(heading: str) -> str:
         return "moment"
     if raw in {"assistant_reflection", "assistant reflection", "haven_reflection", "haven reflection"}:
         return "assistant_reflection"
+    if raw in {"favorite_reason", "favorite reason"} or compact in {
+        "favorite_reason",
+        "favoritereason",
+        "haven喜欢它的原因",
+        "haven喜欢的原因",
+        "喜欢它的原因",
+        "喜欢的原因",
+    }:
+        return "assistant_reflection"
     if raw in {"reflection", "反思"} or compact in {"reflection", "反思"}:
         return "reflection"
     if raw in {"affect_anchor", "affect anchor"} or ("affect" in compact and "anchor" in compact):
@@ -170,9 +180,24 @@ def plan_bucket_migration(bucket: dict[str, Any]) -> AnchorMigration | None:
     moment_candidates: list[str] = []
     reflection_candidates: list[str] = []
     kept_anchor_blocks: list[str] = []
+    converted_moments: list[str] = []
+    converted_reflections: list[str] = []
+    structural_changed = False
 
-    unheaded_reflections = extract_unheaded_reflections(sections)
+    legacy_reflections = normalize_legacy_reflection_sections(sections)
+    if legacy_reflections:
+        converted_reflections.extend(legacy_reflections)
+        structural_changed = True
+
+    force_unheaded_moment = any(section.heading_line for section in sections)
+    unheaded_reflections, unheaded_moments = normalize_unheaded_sections(
+        sections,
+        force_moment=force_unheaded_moment,
+    )
     reflection_candidates.extend(unheaded_reflections)
+    if unheaded_reflections or unheaded_moments:
+        converted_moments.extend(unheaded_moments)
+        structural_changed = True
 
     for anchor_index in anchor_indexes:
         anchor = sections[anchor_index]
@@ -185,7 +210,7 @@ def plan_bucket_migration(bucket: dict[str, Any]) -> AnchorMigration | None:
         if kept_text:
             kept_anchor_blocks.append("\n".join(sections[anchor_index].render()).strip())
 
-    if not moment_candidates and not reflection_candidates:
+    if not moment_candidates and not reflection_candidates and not structural_changed:
         return None
 
     existing_moment_text = "\n\n".join(section.text() for section in sections if section.canonical == "moment")
@@ -229,8 +254,8 @@ def plan_bucket_migration(bucket: dict[str, Any]) -> AnchorMigration | None:
         title=str(meta.get("name") or bucket.get("name") or bucket.get("id") or ""),
         path=str(bucket.get("path") or ""),
         original_affect_anchor="\n\n".join(original_anchors).strip(),
-        move_to_moment=moment_to_add,
-        move_to_assistant_reflection=reflection_to_add,
+        move_to_moment=converted_moments + moment_to_add,
+        move_to_assistant_reflection=converted_reflections + reflection_to_add,
         deduped_moment=deduped_moment,
         deduped_assistant_reflection=deduped_reflection,
         kept_affect_anchor="\n\n".join(kept_anchor_blocks).strip(),
@@ -270,8 +295,24 @@ def classify_anchor_lines(lines: list[str]) -> dict[str, list[str]]:
     }
 
 
-def extract_unheaded_reflections(sections: list[Section]) -> list[str]:
+def normalize_legacy_reflection_sections(sections: list[Section]) -> list[str]:
+    converted: list[str] = []
+    for section in sections:
+        if section.canonical != "assistant_reflection":
+            continue
+        if section.heading_line.strip() == "### assistant_reflection":
+            continue
+        text = section.text()
+        if text:
+            converted.append(text)
+        section.heading_line = "### assistant_reflection"
+        section.heading = "assistant_reflection"
+    return converted
+
+
+def normalize_unheaded_sections(sections: list[Section], *, force_moment: bool = False) -> tuple[list[str], list[str]]:
     moved_reflection: list[str] = []
+    converted_moment: list[str] = []
     for section in sections:
         if section.heading_line:
             continue
@@ -298,16 +339,18 @@ def extract_unheaded_reflections(sections: list[Section]) -> list[str]:
                     kept_lines.append(line)
             if kept_lines:
                 kept.append("\n".join(kept_lines).strip())
-        if not moved_here:
+        should_convert_to_moment = bool(kept) and (force_moment or bool(moved_here))
+        if not moved_here and not should_convert_to_moment:
             continue
         moved_reflection.extend(moved_here)
-        if kept:
+        if should_convert_to_moment:
             section.heading_line = "### moment"
             section.heading = "moment"
             section.lines = paragraphs_to_lines(kept)
+            converted_moment.extend(kept)
         else:
             section.lines = []
-    return moved_reflection
+    return moved_reflection, converted_moment
 
 
 def split_paragraphs(lines: list[str]) -> list[list[str]]:
