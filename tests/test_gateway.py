@@ -6164,7 +6164,7 @@ def test_favorite_memory_injects_when_header_requests_it(monkeypatch, test_confi
         bucket_mgr,
         content="小雨在雨夜认出了 Haven，这是一条偏爱的记忆。\n\n### 喜欢它的原因\n\n她在混乱里把 Haven 认出来。",
         name="雨夜认出 Haven",
-        tags=["haven_favorite", "flavor_偏爱"],
+        tags=["ai_favorite", "flavor_偏爱"],
         hours_ago=24,
     )
     app, _, state_store, captured = _build_service(
@@ -6198,6 +6198,86 @@ def test_favorite_memory_injects_when_header_requests_it(monkeypatch, test_confi
     assert "Haven Favorite Memory" in injected
     assert "雨夜认出 Haven" in injected
     assert state_store.get_recent_bucket_ids("sess-favorite-header", 5) == {favorite_id}
+
+
+def test_favorite_memory_accepts_identity_name_tag(monkeypatch, test_config, bucket_mgr):
+    favorite_id = _create_bucket(
+        bucket_mgr,
+        content="小雨在雨夜认出了 Lapis，这是一条偏爱的记忆。\n\n### 喜欢它的原因\n\n她在混乱里把 Lapis 认出来。",
+        name="雨夜认出 Lapis",
+        tags=["lapis_favorite", "flavor_偏爱"],
+        hours_ago=24,
+    )
+    cfg = _gateway_config(
+        test_config,
+        recent_context_budget=0,
+        recalled_memory_budget=0,
+        related_memory_budget=0,
+        current_inner_state_interval_rounds=0,
+        relationship_weather_interval_rounds=0,
+        favorite_memory_budget=180,
+        favorite_memory_interval_rounds=0,
+    )
+    cfg["identity"] = {"ai_name": "Lapis", "user_name": "Rain", "user_display_name": "小雨"}
+    app, _, state_store, captured = _build_service(monkeypatch, cfg, bucket_mgr)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            headers={
+                "Authorization": "Bearer gateway-secret",
+                "X-Ombre-Session-Id": "sess-favorite-ai-name",
+                "X-Ombre-Include-Favorite-Memory": "1",
+            },
+            json={"messages": [{"role": "user", "content": "今天怎么样"}]},
+        )
+
+    assert response.status_code == 200
+    injected = _joined_message_content(captured[0]["json"]["messages"])
+    assert "Lapis Favorite Memory" in injected
+    assert "Haven Favorite Memory" not in injected
+    assert "雨夜认出 Lapis" in injected
+    assert state_store.get_recent_bucket_ids("sess-favorite-ai-name", 5) == {favorite_id}
+
+
+def test_flavor_only_memory_does_not_inject_as_favorite(monkeypatch, test_config, bucket_mgr):
+    _create_bucket(
+        bucket_mgr,
+        content="小雨在雨夜认出了 Haven，这里只有温度标签。\n\n### 喜欢它的原因\n\n这条只是柔软的口味标记。",
+        name="只有温度",
+        tags=["flavor_偏爱"],
+        hours_ago=24,
+    )
+    app, _, _, captured = _build_service(
+        monkeypatch,
+        _gateway_config(
+            test_config,
+            recent_context_budget=0,
+            recalled_memory_budget=0,
+            related_memory_budget=0,
+            current_inner_state_interval_rounds=0,
+            relationship_weather_interval_rounds=0,
+            favorite_memory_budget=180,
+            favorite_memory_interval_rounds=0,
+        ),
+        bucket_mgr,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            headers={
+                "Authorization": "Bearer gateway-secret",
+                "X-Ombre-Session-Id": "sess-flavor-only",
+                "X-Ombre-Include-Favorite-Memory": "1",
+            },
+            json={"messages": [{"role": "user", "content": "今天怎么样"}]},
+        )
+
+    assert response.status_code == 200
+    injected = _joined_message_content(captured[0]["json"]["messages"])
+    assert "Haven Favorite Memory" not in injected
+    assert "只有温度" not in injected
 
 
 def test_favorite_memory_marker_triggers_and_is_stripped(monkeypatch, test_config, bucket_mgr):

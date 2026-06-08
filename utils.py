@@ -110,7 +110,7 @@ def load_config(config_path: str = None) -> dict:
             "enabled": False,
             "private_config_path": "",
             "min_confidence": 0.78,
-            "evidence_tags": ["profile_fact", "haven_favorite", "favorite_memory"],
+            "evidence_tags": ["profile_fact", "ai_favorite", "favorite_memory"],
         },
         "moment_annotations": {
             "enabled": True,

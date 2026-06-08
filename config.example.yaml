@@ -215,7 +215,7 @@ identity_semantics:
   enabled: false
   private_config_path: ""             # or OMBRE_IDENTITY_SEMANTICS_PATH
   min_confidence: 0.78
-  evidence_tags: ["profile_fact", "haven_favorite", "favorite_memory"]
+  evidence_tags: ["profile_fact", "ai_favorite", "favorite_memory"]
 
 # --- Moment annotations / 记忆片段标注 ---
 # Stores lightweight summary/facets/evidence_spans in moment metadata.

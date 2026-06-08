@@ -456,7 +456,7 @@ async def test_create_memory_api_rejects_favorite_without_reason(monkeypatch, bu
             {
                 "title": "偏爱但没原因",
                 "content": "这是一条想标成偏爱的记忆。",
-                "tags": ["haven_favorite"],
+                "tags": ["ai_favorite"],
             },
             headers={"authorization": "Bearer secret"},
         )
@@ -480,7 +480,7 @@ async def test_create_memory_api_accepts_favorite_with_reflection(monkeypatch, b
             {
                 "title": "偏爱且有 reflection",
                 "content": "小雨把这一刻留下来。\n\n### reflection\n\nHaven偏爱这条记忆里的温度。",
-                "tags": ["haven_favorite"],
+                "tags": ["ai_favorite"],
             },
             headers={"authorization": "Bearer secret"},
         )
@@ -505,7 +505,7 @@ async def test_create_memory_api_accepts_favorite_with_legacy_reason_heading(mon
             {
                 "title": "偏爱且有旧原因",
                 "content": "小雨把这一刻留下来。\n\n### 喜欢它的原因\n\nHaven偏爱这条记忆里的温度。",
-                "tags": ["haven_favorite"],
+                "tags": ["ai_favorite"],
             },
             headers={"authorization": "Bearer secret"},
         )
@@ -583,7 +583,22 @@ async def test_hold_rejects_favorite_without_reason(monkeypatch, bucket_mgr, dec
     monkeypatch.setattr(server, "dehydrator", DummyDehydrator())
     monkeypatch.setattr(server, "embedding_engine", DummyEmbeddingEngine())
 
-    result = await server.hold("小雨想留下这条偏爱的记忆。", tags="haven_favorite,flavor_偏爱")
+    result = await server.hold("小雨想留下这条偏爱的记忆。", tags="ai_favorite,flavor_偏爱")
+
+    assert "### reflection" in result
+    assert await bucket_mgr.list_all(include_archive=True) == []
+
+
+@pytest.mark.asyncio
+async def test_hold_rejects_flavor_without_reason(monkeypatch, bucket_mgr, decay_eng):
+    import server
+
+    monkeypatch.setattr(server, "bucket_mgr", bucket_mgr)
+    monkeypatch.setattr(server, "decay_engine", decay_eng)
+    monkeypatch.setattr(server, "dehydrator", DummyDehydrator())
+    monkeypatch.setattr(server, "embedding_engine", DummyEmbeddingEngine())
+
+    result = await server.hold("小雨想留下这条带温度的记忆。", tags="flavor_偏爱")
 
     assert "### reflection" in result
     assert await bucket_mgr.list_all(include_archive=True) == []

@@ -25,6 +25,7 @@ from bucket_manager import BucketManager
 from dehydrator import Dehydrator
 from dream_engine import DreamEngine
 from embedding_engine import EmbeddingEngine
+from favorite_tags import has_favorite_memory_tag, is_flavor_tag
 from identity import identity_names
 from gateway_state import GatewayStateStore
 from memory_diffusion import (
@@ -4386,8 +4387,8 @@ class GatewayService:
         candidates = []
         for bucket in all_buckets:
             meta = bucket.get("metadata", {})
-            tags = {str(tag) for tag in meta.get("tags", [])}
-            if "haven_favorite" not in tags:
+            tags = [str(tag) for tag in meta.get("tags", [])]
+            if not has_favorite_memory_tag(tags, ai_name=self.identity.get("ai_name")):
                 continue
             if not self._has_favorite_reason(bucket.get("content", "")):
                 continue
@@ -4402,8 +4403,8 @@ class GatewayService:
 
         def favorite_key(bucket: dict) -> tuple[int, int, int, str]:
             meta = bucket.get("metadata", {})
-            tags = {str(tag) for tag in meta.get("tags", [])}
-            flavor_count = sum(1 for tag in tags if tag.startswith("flavor_"))
+            tags = [str(tag) for tag in meta.get("tags", [])]
+            flavor_count = sum(1 for tag in tags if is_flavor_tag(tag))
             protected = 1 if (meta.get("anchor") or meta.get("pinned") or meta.get("protected")) else 0
             return (
                 protected,
@@ -5045,8 +5046,7 @@ class GatewayService:
                 return True
         except (TypeError, ValueError):
             pass
-        tags = {str(tag).lower() for tag in meta.get("tags", []) or []}
-        return "haven_favorite" in tags
+        return has_favorite_memory_tag(meta.get("tags", []) or [], ai_name=self.identity.get("ai_name"))
 
     @staticmethod
     def _bucket_metadata_for_dehydration(bucket: dict) -> dict:

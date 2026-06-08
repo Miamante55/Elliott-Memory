@@ -1054,6 +1054,7 @@ async def test_gateway_builds_favorite_memory_block_and_injects_section(test_con
         relationship_weather="",
         favorite_memory=block,
         recent_context="",
+        just_now_context="",
         recalled_memory="",
         related_memory="",
         dream_context="",

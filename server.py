@@ -69,6 +69,7 @@ from decay_engine import DecayEngine
 from darkroom import DarkroomStore
 from dream_engine import DreamEngine
 from embedding_engine import EmbeddingEngine
+from favorite_tags import has_favorite_memory_tag, has_favorite_policy_tag
 from identity import identity_names
 from identity_semantics import IdentitySemanticStore
 from import_memory import ImportEngine
@@ -1294,10 +1295,7 @@ def _format_handoff_anchors(all_buckets: list[dict], limit: int = 2) -> str:
 
 
 def _has_favorite_tag(tags: list | set | tuple | None) -> bool:
-    return any(
-        tag == "haven_favorite" or tag.startswith("flavor_")
-        for tag in {str(item) for item in (tags or [])}
-    )
+    return has_favorite_policy_tag(tags, ai_name=_ai_author_name())
 
 
 _FAVORITE_REFLECTION_HEADINGS = {
@@ -3384,8 +3382,7 @@ def _bucket_is_high_value(bucket: dict) -> bool:
             return True
     except (TypeError, ValueError):
         pass
-    tags = {str(tag).lower() for tag in meta.get("tags", []) or []}
-    return "haven_favorite" in tags
+    return has_favorite_memory_tag(meta.get("tags", []) or [], ai_name=_ai_author_name())
 
 
 def _bucket_metadata_for_dehydration(bucket: dict) -> dict:

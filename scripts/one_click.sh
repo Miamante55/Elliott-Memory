@@ -476,7 +476,7 @@ identity_semantics:
   min_confidence: 0.78
   evidence_tags:
     - "profile_fact"
-    - "haven_favorite"
+    - "ai_favorite"
     - "favorite_memory"
 
 moment_annotations:
