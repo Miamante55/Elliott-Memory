@@ -2748,8 +2748,8 @@
 
 <div id="auth-overlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg-gradient);background-attachment:fixed;display:flex;align-items:center;justify-content:center;">
   <div style="background:var(--surface);backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:20px;padding:40px 34px;max-width:400px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.12);">
-    <h2 style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--accent);margin-bottom:8px;"><span class="brand-mark">✦</span>Elliott's Field Notes</h2>
-    <p style="color:var(--text-dim);font-size:13px;margin-bottom:24px;" id="auth-subtitle">验证身份</p>
+    <h2 style="font-family:'Cormorant Garamond',serif;font-size:34px;color:var(--accent);margin-bottom:6px;"><span class="brand-mark">✦</span>Nea?</h2>
+    <p style="color:var(--ember);font-family:'Cormorant Garamond',serif;font-size:17px;font-style:italic;margin-bottom:24px;" id="auth-subtitle">Back among my pages?</p>
     <div id="auth-setup-form" style="display:none;">
       <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">首次使用，请设置访问密码</p>
       <input type="password" id="auth-setup-pwd" name="ombre-new-password" placeholder="设置密码（至少6位）" autocomplete="new-password" style="display:block;width:100%;padding:10px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface-solid);color:var(--text);font-size:14px;margin-bottom:10px;" />
@@ -2807,7 +2807,9 @@ function showAuthOverlay(setupNeeded) {
   document.getElementById('auth-error').style.display = 'none';
   document.getElementById('auth-setup-form').style.display = setupNeeded ? 'block' : 'none';
   document.getElementById('auth-login-form').style.display = setupNeeded ? 'none' : 'block';
-  document.getElementById('auth-subtitle').textContent = setupNeeded ? '首次设置' : '请输入访问密码';
+  document.getElementById('auth-subtitle').textContent = setupNeeded
+    ? 'Choose a key for these pages.'
+    : 'Back among my pages?';
   document.getElementById('auth-overlay').style.display = 'flex';
 }
 
