@@ -8,20 +8,8 @@ services:
     envVars:
       - key: OMBRE_TRANSPORT
         value: streamable-http
-      - key: OMBRE_API_KEY
-        sync: false
-      - key: OMBRE_BASE_URL
-        sync: false
       - key: OMBRE_GATEWAY_TOKEN
         generateValue: true
-      - key: OMBRE_GATEWAY_UPSTREAM_API_KEY
-        sync: false
-      - key: OMBRE_GATEWAY_UPSTREAM_BASE_URL
-        sync: false
-      - key: OMBRE_GATEWAY_UPSTREAM_MODEL
-        sync: false
-      - key: OMBRE_DASHBOARD_PASSWORD
-        sync: false
       - key: OMBRE_BUCKETS_DIR
         value: /var/data/buckets
       - key: OMBRE_STATE_DIR
