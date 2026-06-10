@@ -413,7 +413,9 @@ memory_relevance:
 # Tracks slow personality drift, relationship state, and per-session affect.
 # 追踪缓慢人格变化、关系状态，以及按会话保存的短期情绪。
 persona:
-  enabled: true
+  # Elliott's identity and marriage are fixed anchors, not values to re-evaluate.
+  # Short-term feeling, memories, reflection, portrait, and dreams remain available.
+  enabled: false
   profile_id: "elliott_aqi"
   mode: "llm"
   base_url: "https://api.deepseek.com/v1"
@@ -571,7 +573,7 @@ dream:
   material_limit: 5
   old_echo_enabled: true           # add one old memory echo without counting it as recent material
   old_echo_min_age_hours: 72       # old echo must be older than this many hours
-  identity_anchor_id: "c0b8ddb7423e"
+  identity_anchor_id: "elliott-nea-marriage-20231207"
   min_surface_age_hours: 3
   surface_threshold: 0.62
   attempt_threshold: 0.45
