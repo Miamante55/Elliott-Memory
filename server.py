@@ -9098,6 +9098,7 @@ async def api_import_upload(request):
 
         preserve_raw = request.query_params.get("preserve_raw", "").lower() in ("1", "true")
         resume = request.query_params.get("resume", "").lower() in ("1", "true")
+        region = (request.query_params.get("region") or "").strip()
 
     except Exception as e:
         return JSONResponse({"error": f"Failed to read upload: {e}"}, status_code=400)
@@ -9105,7 +9106,7 @@ async def api_import_upload(request):
     # Start import in background
     async def _run_import():
         try:
-            await import_engine.start(raw_content, filename, preserve_raw, resume)
+            await import_engine.start(raw_content, filename, preserve_raw, resume, region)
         except Exception as e:
             logger.error(f"Import failed: {e}")
 
@@ -9115,6 +9116,7 @@ async def api_import_upload(request):
         "status": "started",
         "filename": filename,
         "size_bytes": len(raw_content.encode()),
+        "region": region,
     })
 
 

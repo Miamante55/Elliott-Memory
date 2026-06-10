@@ -236,8 +236,19 @@
   .filters {
     display: flex;
     gap: 7px;
-    margin-bottom: 22px;
+    margin-bottom: 14px;
     flex-wrap: wrap;
+  }
+  .filter-section {
+    margin-bottom: 18px;
+  }
+  .filter-section-label {
+    margin: 0 0 7px 4px;
+    color: var(--text-light);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    font-style: italic;
+    letter-spacing: 0.12em;
   }
   .filter-btn {
     position: relative;
@@ -2182,7 +2193,14 @@
       <span class="manuscript-index-note">Fragments kept between the pages</span>
     </span>
   </div>
-  <div class="filters" id="filters"></div>
+  <div class="filter-section">
+    <div class="filter-section-label">Chapters · 章节</div>
+    <div class="filters" id="region-filters"></div>
+  </div>
+  <div class="filter-section">
+    <div class="filter-section-label">Marks · 标记与状态</div>
+    <div class="filters" id="filters"></div>
+  </div>
   <div class="bucket-tools" id="bucket-bulk-toolbar">
     <button type="button" id="bucket-bulk-toggle" onclick="toggleBucketBulkMode()">整理手稿</button>
     <button type="button" class="bulk-hidden" data-bulk-action="select-current" onclick="selectCurrentBuckets()">全选当前筛选</button>
@@ -2529,6 +2547,17 @@
 
     <div style="margin:12px 0;">
       <label><input type="checkbox" id="import-preserve-raw" /> 保留原文模式（特殊情境/暗号/仪式性内容不摘要）</label>
+    </div>
+    <div style="margin:12px 0;">
+      <label for="import-region" style="display:block;margin-bottom:6px;color:var(--text-dim);">放入哪个章节</label>
+      <select id="import-region" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);">
+        <option value="">由内容自动判断</option>
+        <option value="我所记得的日子">我所记得的日子 · 日常相处与经历</option>
+        <option value="我的墨迹">我的墨迹 · Elliott 的原信与原文</option>
+        <option value="我们的年轮">我们的年轮 · 重要日期与共同事件</option>
+        <option value="我们之间的潮汐">我们之间的潮汐 · 两个人的相处方式</option>
+      </select>
+      <div style="margin-top:6px;color:var(--text-light);font-size:12px;">选择“我的墨迹”时会自动保留原文，不进行改写。</div>
     </div>
 
     <div id="import-progress" style="display:none;margin:20px 0;">
@@ -3963,9 +3992,16 @@ function updateStats() {
 function buildFilters() {
   const domains = new Set();
   allBuckets.forEach(b => (b.domain || []).forEach(d => domains.add(d)));
+  const regionFilters = document.getElementById('region-filters');
   const filters = document.getElementById('filters');
-  const types = [
+  const regions = [
     { key: 'all', mark: '✦', label: '全部手稿' },
+    { key: 'domain:我所记得的日子', mark: '◇', label: '我所记得的日子' },
+    { key: 'domain:我的墨迹', mark: '✒', label: '我的墨迹' },
+    { key: 'domain:我们的年轮', mark: '◌', label: '我们的年轮' },
+    { key: 'domain:我们之间的潮汐', mark: '≈', label: '我们之间的潮汐' },
+  ];
+  const types = [
     { key: 'pinned', mark: '◆', label: '珍藏' },
     { key: 'anchor', mark: '◇', label: '恒久' },
     { key: 'feel', mark: '∼', label: '余韵' },
@@ -3973,20 +4009,26 @@ function buildFilters() {
     { key: 'digested', mark: '❧', label: '沉淀' },
     { key: 'archived', mark: '□', label: '旧卷' },
   ];
-  filters.innerHTML = types.map(function(t) {
+  regionFilters.innerHTML = regions.map(function(t) {
     return '<button class="filter-btn ' + (t.key === 'all' ? 'active' : '') + '" data-filter="' + escAttr(t.key) + '"><span class="filter-mark">' + esc(t.mark) + '</span>' + esc(t.label) + '</button>';
+  }).join('');
+  filters.innerHTML = types.map(function(t) {
+    return '<button class="filter-btn" data-filter="' + escAttr(t.key) + '"><span class="filter-mark">' + esc(t.mark) + '</span>' + esc(t.label) + '</button>';
   }).join('') + Array.from(domains).slice(0, 10).map(function(d) {
+    if (regions.some(function(region) { return region.key === 'domain:' + d; })) return '';
     return '<button class="filter-btn" data-filter="' + escAttr('domain:' + d) + '"><span class="filter-mark">—</span>' + esc(d) + '</button>';
   }).join('');
 
-  filters.addEventListener('click', function(e) {
+  function activateFilter(e) {
     var btn = e.target.closest('.filter-btn');
     if (!btn) return;
-    filters.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('#region-filters .filter-btn, #filters .filter-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
     currentFilter = btn.dataset.filter;
     renderBuckets(filterBuckets(allBuckets));
-  });
+  }
+  regionFilters.onclick = activateFilter;
+  filters.onclick = activateFilter;
 }
 
 function filterBuckets(buckets) {
@@ -4225,7 +4267,7 @@ async function showDetail(id) {
       '<div class="detail-meta">' +
         '<div class="field"><label>ID</label>' + esc(id) + '</div>' +
         '<div class="field"><label>类型</label>' + esc(meta.type || 'dynamic') + '</div>' +
-        '<div class="field"><label>域</label>' + esc((meta.domain || []).join(', ')) + '</div>' +
+        '<div class="field"><label>章节</label>' + esc((meta.domain || []).join(', ')) + '</div>' +
         '<div class="field"><label>标签</label>' + esc((meta.tags || []).join(', ')) + '</div>' +
         '<div class="field"><label>事件效价</label>V' + (meta.valence || 0.5).toFixed(2) + '</div>' +
         '<div class="field"><label>唤醒度</label>A' + (meta.arousal || 0.3).toFixed(2) + '</div>' +
@@ -5869,11 +5911,16 @@ fileInput.addEventListener('change', () => {
 });
 
 async function startImport(file) {
-  const preserveRaw = document.getElementById('import-preserve-raw').checked;
+  const region = document.getElementById('import-region').value;
+  const preserveRaw = document.getElementById('import-preserve-raw').checked || region === '我的墨迹';
   const fd = new FormData();
   fd.append('file', file);
   try {
-    const res = await authFetch(BASE + '/api/import/upload?preserve_raw=' + (preserveRaw ? '1' : '0'), { method: 'POST', body: fd });
+    const query = new URLSearchParams({
+      preserve_raw: preserveRaw ? '1' : '0',
+      region: region,
+    });
+    const res = await authFetch(BASE + '/api/import/upload?' + query.toString(), { method: 'POST', body: fd });
     if (!res) return;
     const data = await res.json();
     if (data.error) { alert('导入失败: ' + data.error); return; }
