@@ -4,7 +4,7 @@ set -euo pipefail
 mkdir -p "${OMBRE_BUCKETS_DIR:-/var/data/buckets}"
 mkdir -p "${OMBRE_STATE_DIR:-/var/data/state}"
 
-python scripts/bootstrap_elliott_memory.py
+python scripts/remove_bootstrap_anchor.py
 
 python server.py &
 brain_pid=$!

@@ -573,7 +573,7 @@ dream:
   material_limit: 5
   old_echo_enabled: true           # add one old memory echo without counting it as recent material
   old_echo_min_age_hours: 72       # old echo must be older than this many hours
-  identity_anchor_id: "elliott-nea-marriage-20231207"
+  identity_anchor_id: ""
   min_surface_age_hours: 3
   surface_threshold: 0.62
   attempt_threshold: 0.45
