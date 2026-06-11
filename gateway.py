@@ -297,8 +297,10 @@ class GatewayService:
         self.dream_inject_enabled = bool(self.dream_cfg.get("inject_enabled", False))
         self.dream_retain_after_inject = bool(self.dream_cfg.get("retain_after_inject", False))
         self.gateway_token = os.environ.get("OMBRE_GATEWAY_TOKEN", "")
-        self.upstream_api_key = os.environ.get("OMBRE_GATEWAY_UPSTREAM_API_KEY", "")
         self.upstream_base_url = self.gateway_cfg.get("upstream_base_url", "").rstrip("/")
+        self.upstream_api_key = os.environ.get("OMBRE_GATEWAY_UPSTREAM_API_KEY", "")
+        if not self.upstream_api_key and self.upstream_base_url.startswith("https://api.openai.com/"):
+            self.upstream_api_key = os.environ.get("OMBRE_API_KEY", "")
         self.upstream_default_model = self.gateway_cfg.get("upstream_default_model", "")
         self.default_session_id = str(self.gateway_cfg.get("default_session_id") or "xiaoyu-main").strip()
         self.upstream_models = self._normalize_model_list(

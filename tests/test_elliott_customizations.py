@@ -63,3 +63,9 @@ def test_render_preserves_disk_and_disables_unconfigured_reranker():
     assert "mountPath: /var/data" in render
     assert "OMBRE_RERANKER_ENABLED" in render
     assert 'value: "false"' in render
+
+
+def test_openai_gateway_can_reuse_the_existing_api_key():
+    source = Path("gateway.py").read_text(encoding="utf-8")
+    assert 'self.upstream_base_url.startswith("https://api.openai.com/")' in source
+    assert 'self.upstream_api_key = os.environ.get("OMBRE_API_KEY", "")' in source
