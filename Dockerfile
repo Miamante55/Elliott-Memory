@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files / 复制项目文件
 COPY *.py .
 COPY scripts ./scripts
+COPY resources ./resources
 COPY dashboard.html .
 COPY config.example.yaml ./config.yaml
 COPY render-nginx.conf /etc/nginx/nginx.conf
