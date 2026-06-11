@@ -7069,7 +7069,7 @@ async def _grow_direct_structured_content(content: str, title: str = "", gate_pr
 
 @mcp.tool()
 async def grow(content: str, auto: bool = False, source: str = "", title: str = "", context: Context | None = None) -> str:
-    """把筛过的长片段拆成少量长期记忆；单条事实优先 hold，旧记忆补感受优先 comment_bucket。title 可选，短内容时传了就用你给的标题。content 按需分段：正文 + ### moment + ### original + ### reflection + ### followup + ### affect_anchor（只放和弦温度线），没有的部分不写。"""
+    """把筛过的长片段拆成少量长期记忆；正文按 Elliott 的第一人称“我”书写，Nea 用第三人称，原话仅放 ### original 并保持原文。单条事实优先 hold，旧记忆补感受优先 comment_bucket。title 可选，短内容时传了就用你给的标题。content 按需分段：正文 + ### moment + ### original + ### reflection + ### followup + ### affect_anchor（只放和弦温度线），没有的部分不写。"""
     await decay_engine.ensure_started()
 
     if not content or not content.strip():

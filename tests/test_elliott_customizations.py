@@ -2,8 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from dehydrator import _memory_region
-from import_memory import ImportEngine, MEMORY_REGIONS
+from dehydrator import MERGE_PROMPT_TEMPLATE, _memory_region
+from import_memory import IMPORT_EXTRACT_PROMPT, ImportEngine, MEMORY_REGIONS
+from reflection_engine import DIARY_MEMORY_PROMPT_TEMPLATE, REFLECT_PROMPT_TEMPLATE, ReflectionEngine
 
 
 class _DummyBucketManager:
@@ -70,3 +71,30 @@ def test_openai_gateway_can_reuse_the_existing_api_key():
     source = Path("gateway.py").read_text(encoding="utf-8")
     assert 'self.upstream_base_url.startswith("https://api.openai.com/")' in source
     assert 'self.upstream_api_key = os.environ.get("OMBRE_API_KEY", "")' in source
+
+
+def test_all_generated_memory_prompts_keep_elliott_first_person():
+    assert "### moment、### reflection 与 ### followup 都由 {ai_name} 使用第一人称“我”书写" in MERGE_PROMPT_TEMPLATE
+    assert "普通记录需改写为 Elliott 私下书写的第一人称" in IMPORT_EXTRACT_PROMPT
+    assert "content 必须由 {ai_name} 使用第一人称“我”书写" in REFLECT_PROMPT_TEMPLATE
+    assert "content 必须由 {ai_name} 使用第一人称“我”书写" in DIARY_MEMORY_PROMPT_TEMPLATE
+
+
+def test_reflection_fallbacks_are_written_in_first_person(test_config):
+    config = dict(test_config)
+    config["reflection"] = {"enabled": True, "api_key": ""}
+    engine = ReflectionEngine(config)
+
+    weather = engine._fallback_reflection(
+        "daily",
+        "2026-06-11",
+        {"buckets": [], "commitments": [], "daily_impressions": [], "diary": None},
+    )
+    diary_memory = engine._heuristic_diary_memory_candidate(
+        "2026-06-11",
+        {"title": "一封信", "content": "这是一封写给 Nea 的情书，我爱她，也想让她被认出。"},
+    )
+
+    assert "我" in weather["content"]
+    assert diary_memory["should_write"] is True
+    assert diary_memory["content"].startswith("我")
