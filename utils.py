@@ -77,6 +77,7 @@ def load_config(config_path: str = None) -> dict:
         },
         "reranker": {
             "enabled": True,
+            "mode": "api",
             "model": "Qwen/Qwen3-Reranker-4B",
             "base_url": "",
             "api_key": "",
@@ -452,6 +453,10 @@ def load_config(config_path: str = None) -> dict:
     env_reranker_model = os.environ.get("OMBRE_RERANKER_MODEL", "")
     if env_reranker_model:
         config.setdefault("reranker", {})["model"] = env_reranker_model
+
+    env_reranker_mode = os.environ.get("OMBRE_RERANKER_MODE", "")
+    if env_reranker_mode:
+        config.setdefault("reranker", {})["mode"] = env_reranker_mode
 
     env_reranker_enabled = os.environ.get("OMBRE_RERANKER_ENABLED", "")
     if env_reranker_enabled:

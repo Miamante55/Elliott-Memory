@@ -9248,6 +9248,7 @@ async def api_config_get(request):
         },
         "reranker": {
             "enabled": bool(getattr(reranker_engine, "enabled", False)),
+            "mode": getattr(reranker_engine, "mode", rerank.get("mode", "api")),
             "model": getattr(reranker_engine, "model", rerank.get("model", "Qwen/Qwen3-Reranker-4B")),
             "base_url": str(rerank.get("base_url") or getattr(reranker_engine, "base_url", "") or ""),
             "api_key_masked": _mask_key(rerank.get("api_key", "")),
@@ -9542,6 +9543,14 @@ async def api_config_update(request):
             reranker_gateway_payload["enabled"] = reranker_cfg["enabled"]
             os.environ["OMBRE_RERANKER_ENABLED"] = "true" if reranker_cfg["enabled"] else "false"
             updated.append("reranker.enabled")
+        if "mode" in r:
+            mode = str(r["mode"] or "api").strip().lower()
+            if mode not in {"api", "llm"}:
+                return JSONResponse({"error": "invalid reranker mode"}, status_code=400)
+            reranker_cfg["mode"] = mode
+            reranker_gateway_payload["mode"] = mode
+            os.environ["OMBRE_RERANKER_MODE"] = mode
+            updated.append("reranker.mode")
         for key in ("model", "base_url"):
             if key in r:
                 reranker_cfg[key] = str(r[key] or "").strip()
@@ -9917,6 +9926,10 @@ async def api_config_update(request):
                 sc_reranker = save_config.setdefault("reranker", {})
                 if "enabled" in body["reranker"]:
                     sc_reranker["enabled"] = _bool_value(body["reranker"]["enabled"], True)
+                if "mode" in body["reranker"]:
+                    mode = str(body["reranker"]["mode"] or "api").strip().lower()
+                    if mode in {"api", "llm"}:
+                        sc_reranker["mode"] = mode
                 for key in ("model", "base_url"):
                     if key in body["reranker"]:
                         sc_reranker[key] = str(body["reranker"][key] or "").strip()

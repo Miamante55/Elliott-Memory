@@ -562,6 +562,7 @@ class GatewayService:
                 "retrieval_mode": self.retrieval_mode,
                 "reranker": {
                     "enabled": bool(getattr(self.reranker_engine, "enabled", False)),
+                    "mode": getattr(self.reranker_engine, "mode", "api"),
                     "model": getattr(self.reranker_engine, "model", ""),
                     "base_url": getattr(self.reranker_engine, "base_url", ""),
                     "candidate_limit": getattr(self.reranker_engine, "candidate_limit", 0),
@@ -652,6 +653,7 @@ class GatewayService:
     def _reranker_config_payload(self) -> dict[str, Any]:
         return {
             "enabled": bool(getattr(self.reranker_engine, "enabled", False)),
+            "mode": getattr(self.reranker_engine, "mode", "api"),
             "model": getattr(self.reranker_engine, "model", ""),
             "base_url": getattr(self.reranker_engine, "base_url", ""),
             "api_ready": bool(getattr(self.reranker_engine, "api_key", "")),
@@ -883,6 +885,12 @@ class GatewayService:
             reranker_cfg["enabled"] = self._bool_config_value(payload["enabled"], True)
             os.environ["OMBRE_RERANKER_ENABLED"] = "true" if reranker_cfg["enabled"] else "false"
             updated.append("reranker.enabled")
+        if "mode" in payload:
+            mode = str(payload["mode"] or "api").strip().lower()
+            if mode in {"api", "llm"}:
+                reranker_cfg["mode"] = mode
+                os.environ["OMBRE_RERANKER_MODE"] = mode
+                updated.append("reranker.mode")
         for key in ("model", "base_url"):
             if key in payload:
                 reranker_cfg[key] = str(payload[key] or "").strip()

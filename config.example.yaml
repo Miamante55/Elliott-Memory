@@ -153,19 +153,21 @@ embedding:
 # Uses the embedding base_url/api_key when these are left empty.
 # 留空时复用 embedding 的 base_url/api_key。
 reranker:
-  # OpenAI does not expose the SiliconFlow-compatible /rerank endpoint.
-  # Keep this off until a dedicated compatible reranker is configured.
-  enabled: false
-  model: "Qwen/Qwen3-Reranker-4B"
+  # "llm" lets the existing OpenAI model review a small candidate set as JSON.
+  # Use "api" for a dedicated SiliconFlow-compatible /rerank endpoint.
+  enabled: true
+  mode: "llm"
+  model: "gpt-4.1-mini"
   base_url: ""
   # api_key: ""                   # Use OMBRE_RERANKER_API_KEY or reuse embedding key
-  candidate_limit: 20
-  score_weight: 0.65
-  timeout_seconds: 12
+  candidate_limit: 8
+  score_weight: 0.55
+  timeout_seconds: 20
   # Env vars / 环境变量:
   #   OMBRE_RERANKER_API_KEY
   #   OMBRE_RERANKER_BASE_URL
   #   OMBRE_RERANKER_MODEL
+  #   OMBRE_RERANKER_MODE
   #   OMBRE_RERANKER_ENABLED
 
 # --- Recall diagnostics / 召回诊断 ---

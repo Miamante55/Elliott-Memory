@@ -15,7 +15,11 @@ services:
       - key: OMBRE_STATE_DIR
         value: /var/data/state
       - key: OMBRE_RERANKER_ENABLED
-        value: "false"
+        value: "true"
+      - key: OMBRE_RERANKER_MODE
+        value: "llm"
+      - key: OMBRE_RERANKER_MODEL
+        value: "gpt-4.1-mini"
     disk:
       name: elliott-memory-data
       mountPath: /var/data

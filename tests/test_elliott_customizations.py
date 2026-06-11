@@ -58,11 +58,12 @@ def test_dashboard_keeps_elliott_chapters_and_v2_self_anchor():
     assert 'id="import-region"' in html
 
 
-def test_render_preserves_disk_and_disables_unconfigured_reranker():
+def test_render_preserves_disk_and_enables_openai_llm_reranker():
     render = Path("render.yaml").read_text(encoding="utf-8")
     assert "mountPath: /var/data" in render
-    assert "OMBRE_RERANKER_ENABLED" in render
-    assert 'value: "false"' in render
+    assert 'key: OMBRE_RERANKER_ENABLED\n        value: "true"' in render
+    assert 'key: OMBRE_RERANKER_MODE\n        value: "llm"' in render
+    assert 'key: OMBRE_RERANKER_MODEL\n        value: "gpt-4.1-mini"' in render
 
 
 def test_openai_gateway_can_reuse_the_existing_api_key():

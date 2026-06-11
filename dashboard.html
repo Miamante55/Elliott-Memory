@@ -2720,8 +2720,15 @@
       </div>
       <div style="margin-top:-4px;margin-bottom:12px;padding-left:122px;font-size:11px;color:var(--text-light);">关闭后 Gateway 和 breath 不再等待重排序模型</div>
       <div class="config-row">
+        <label>方式</label>
+        <select id="cfg-reranker-mode">
+          <option value="llm">OpenAI 模型复审</option>
+          <option value="api">专用 /rerank 接口</option>
+        </select>
+      </div>
+      <div class="config-row">
         <label>Model</label>
-        <input type="text" id="cfg-reranker-model" placeholder="Qwen/Qwen3-Reranker-4B" />
+        <input type="text" id="cfg-reranker-model" placeholder="gpt-4.1-mini" />
       </div>
       <div class="config-row">
         <label>Base URL</label>
@@ -2744,7 +2751,7 @@
         <label>重排权重</label>
         <input type="number" id="cfg-reranker-weight" min="0" max="1" step="0.05" />
       </div>
-      <div style="margin-top:-4px;padding-left:122px;font-size:11px;color:var(--text-light);">默认 12 秒 / 20 个候选 / 0.65；旧配置没有 reranker 段时，保存会自动补上</div>
+      <div style="margin-top:-4px;padding-left:122px;font-size:11px;color:var(--text-light);">OpenAI 复审建议 20 秒 / 8 个候选 / 0.55；失败时自动保留原排序</div>
     </div>
 
     <div class="config-section">
@@ -5989,6 +5996,7 @@ async function loadConfig() {
     document.getElementById('cfg-emb-key').value = '';
     var reranker = cfg.reranker || {};
     document.getElementById('cfg-reranker-enabled').value = reranker.enabled ? 'true' : 'false';
+    document.getElementById('cfg-reranker-mode').value = reranker.mode || 'api';
     document.getElementById('cfg-reranker-model').value = reranker.model || '';
     document.getElementById('cfg-reranker-url').value = reranker.base_url || '';
     document.getElementById('cfg-reranker-key').placeholder =
@@ -6167,6 +6175,7 @@ async function saveConfig(persist, persistEnv) {
     };
     candidate.reranker = {
       enabled: document.getElementById('cfg-reranker-enabled').value === 'true',
+      mode: document.getElementById('cfg-reranker-mode').value,
       model: document.getElementById('cfg-reranker-model').value,
       base_url: document.getElementById('cfg-reranker-url').value,
       timeout_seconds: floatValue('cfg-reranker-timeout', 12),
