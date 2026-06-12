@@ -7892,7 +7892,9 @@ async def api_create_memory(request):
     if not _memory_write_token():
         return JSONResponse({"error": "memory write token is not configured"}, status_code=503)
     if not _authorized_memory_write(request):
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
+        dashboard_auth_error = _require_dashboard_auth(request)
+        if dashboard_auth_error:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     try:
         body = await request.json()

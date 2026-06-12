@@ -98,3 +98,8 @@ def test_reflection_fallbacks_are_written_in_first_person(test_config):
     assert "我" in weather["content"]
     assert diary_memory["should_write"] is True
     assert diary_memory["content"].startswith("我")
+
+
+def test_exact_memory_write_accepts_dashboard_session():
+    source = Path("server.py").read_text(encoding="utf-8")
+    assert "dashboard_auth_error = _require_dashboard_auth(request)" in source
