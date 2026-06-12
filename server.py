@@ -7889,11 +7889,11 @@ async def api_create_memory(request):
     """Create or update one memory bucket from a trusted C-side client."""
     from starlette.responses import JSONResponse
 
+    dashboard_authenticated = _require_dashboard_auth(request) is None
     if not _memory_write_token():
         return JSONResponse({"error": "memory write token is not configured"}, status_code=503)
     if not _authorized_memory_write(request):
-        dashboard_auth_error = _require_dashboard_auth(request)
-        if dashboard_auth_error:
+        if not dashboard_authenticated:
             return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     try:
@@ -7909,7 +7909,9 @@ async def api_create_memory(request):
         return JSONResponse({"error": "missing title"}, status_code=400)
     if not content:
         return JSONResponse({"error": "missing content"}, status_code=400)
-    content = _normalize_memory_sections_for_write(content)
+    preserve_exact = dashboard_authenticated and _bool_value(body.get("preserve_exact"), False)
+    if not preserve_exact:
+        content = _normalize_memory_sections_for_write(content)
 
     requested_id = body.get("id")
     bucket_id = str(requested_id).strip() if requested_id else None
@@ -7987,7 +7989,11 @@ async def api_create_memory(request):
     else:
         embedding_status = "disabled"
 
-    if bucket_type != "feel" and not is_self_anchor_metadata({"tags": tags, "self_anchor": body.get("self_anchor")}):
+    if (
+        not preserve_exact
+        and bucket_type != "feel"
+        and not is_self_anchor_metadata({"tags": tags, "self_anchor": body.get("self_anchor")})
+    ):
         _queue_memory_enrichment(bucket_id)
 
     return JSONResponse({

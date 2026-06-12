@@ -102,4 +102,6 @@ def test_reflection_fallbacks_are_written_in_first_person(test_config):
 
 def test_exact_memory_write_accepts_dashboard_session():
     source = Path("server.py").read_text(encoding="utf-8")
-    assert "dashboard_auth_error = _require_dashboard_auth(request)" in source
+    assert "dashboard_authenticated = _require_dashboard_auth(request) is None" in source
+    assert 'preserve_exact = dashboard_authenticated and _bool_value(body.get("preserve_exact"), False)' in source
+    assert "not preserve_exact" in source
